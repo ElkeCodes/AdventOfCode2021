@@ -51,21 +51,21 @@ pub fn part1(input: String) {
 pub fn part2(input: String) {
     fn grow_basin(depths: &mut Vec<Vec<u32>>, x: usize, y: usize) -> u32 {
         let mut result = 0;
-		let mut to_visit = vec![];
+        let mut to_visit = vec![];
         for test_y in get_lower_bound(y)..=get_upper_bound(y, depths.len()) {
             for test_x in get_lower_bound(x)..=get_upper_bound(x, depths[0].len()) {
                 if (test_y == y || test_x == x) && depths[test_y][test_x] != 9 {
                     result += 1;
                     depths[test_y][test_x] = 9;
-					to_visit.push((test_x, test_y));
+                    to_visit.push((test_x, test_y));
                 }
             }
         }
-		if to_visit.len() > 0 {
-			for to in to_visit.into_iter() {
-				result += grow_basin(depths, to.0, to.1);
-			}
-		}
+        if to_visit.len() > 0 {
+            for to in to_visit.into_iter() {
+                result += grow_basin(depths, to.0, to.1);
+            }
+        }
         result
     }
 
@@ -80,10 +80,17 @@ pub fn part2(input: String) {
         }
     }
 
-	let mut found_basins = vec![];
+    let mut found_basins = vec![];
     for basin_start in lowest_points.clone().into_iter() {
-		found_basins.push((basin_start.0, basin_start.1, grow_basin(&mut depths, basin_start.0, basin_start.1)));
-	}
-	found_basins.sort_by(|a, b| b.2.cmp(&a.2));
-    println!("{:?}", found_basins[0].2 * found_basins[1].2 * found_basins[2].2) // 959136
+        found_basins.push((
+            basin_start.0,
+            basin_start.1,
+            grow_basin(&mut depths, basin_start.0, basin_start.1),
+        ));
+    }
+    found_basins.sort_by(|a, b| b.2.cmp(&a.2));
+    println!(
+        "{:?}",
+        found_basins[0].2 * found_basins[1].2 * found_basins[2].2
+    ) // 959136
 }
