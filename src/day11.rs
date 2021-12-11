@@ -5,7 +5,11 @@ use std::{
     convert::TryInto,
 };
 
-type Octopus = (u32, u32);
+#[derive(Clone)]
+struct Octopus {
+    light_level: u32,
+    last_step_flashed: u32,
+}
 
 fn get_lower_bound(x: usize) -> usize {
     max::<i32>(0, (x as i32 - 1).try_into().unwrap())
@@ -22,7 +26,10 @@ fn parse_input(input: &String) -> Vec<Vec<Octopus>> {
         .lines()
         .map(|line| {
             line.chars()
-                .map(|x| (x.to_digit(10).unwrap(), 0))
+                .map(|x| Octopus {
+                    light_level: x.to_digit(10).unwrap(),
+                    last_step_flashed: 0,
+                })
                 .collect::<Vec<Octopus>>()
         })
         .collect::<Vec<Vec<Octopus>>>()
@@ -35,23 +42,29 @@ fn perform_step(octopuses: &mut Vec<Vec<Octopus>>, step: u32) -> u32 {
     let mut flashes = 0;
     while to_visit.len() > 0 {
         let (x, y) = to_visit.pop_front().unwrap();
-        let mut octopus = octopuses[y][x];
-        octopus.0 += 1;
-        if octopus.1 < step && octopus.0 > 9 {
+        let mut octopus = octopuses[y][x].clone();
+        octopus.light_level += 1;
+        if octopus.last_step_flashed < step && octopus.light_level > 9 {
             flashes += 1;
             for test_y in get_lower_bound(y)..=get_upper_bound(y, 10) {
                 for test_x in get_lower_bound(x)..=get_upper_bound(x, 10) {
-                    if octopuses[test_y][test_x].0 <= 9
+                    if octopuses[test_y][test_x].light_level <= 9
                         && !(test_x == x && test_y == y)
-                        && octopuses[test_y][test_x].1 != step
+                        && octopuses[test_y][test_x].last_step_flashed != step
                     {
                         to_visit.push_back((test_x, test_y));
                     }
                 }
             }
-            octopuses[y][x] = (0, step);
-        } else if octopus.1 < step {
-            octopuses[y][x] = (octopus.0, octopus.1);
+            octopuses[y][x] = Octopus {
+                light_level: 0,
+                last_step_flashed: step,
+            };
+        } else if octopus.last_step_flashed < step {
+            octopuses[y][x] = Octopus {
+                light_level: octopus.light_level,
+                last_step_flashed: octopus.last_step_flashed,
+            };
         }
     }
     flashes
