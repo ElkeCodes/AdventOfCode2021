@@ -95,4 +95,31 @@ pub fn part1(input: String) {
     println!("{:?}", calculate_risk_level(&grid, &path.unwrap()));
 }
 
-pub fn part2(input: String) {}
+pub fn part2(input: String) {
+    fn calculate_new_risk(risk: u32, times_x: usize, times_y: usize) -> u32 {
+        let new_risk = risk + times_x as u32 + times_y as u32;
+        if new_risk > 9 {
+            new_risk % 10 + 1
+        } else {
+            new_risk
+        }
+    }
+    let (grid, end_coordinate) = parse_input(&input);
+    let mut new_grid = Grid::new();
+    for ((x, y), risk) in grid.clone().into_iter() {
+        for times_y in 0..5 {
+            for times_x in 0..5 {
+                new_grid.insert(
+                    (x + 100 * times_x, y + 100 * times_y),
+                    calculate_new_risk(risk, times_x, times_y),
+                );
+            }
+        }
+    }
+    let path = find_path(
+        &new_grid,
+        (0, 0),
+        (end_coordinate.0 + 400, end_coordinate.1 + 400),
+    );
+    println!("{:?}", calculate_risk_level(&new_grid, &path.unwrap()));
+}
