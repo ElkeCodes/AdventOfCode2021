@@ -1,9 +1,4 @@
-use std::{
-    cmp::{max, min},
-    collections::{BinaryHeap, HashMap},
-    convert::TryInto,
-    usize, vec,
-};
+use std::{usize, vec};
 
 #[derive(Debug)]
 enum Packet {
@@ -32,15 +27,6 @@ impl Input {
     }
     fn take_usize(&mut self, amount: usize) -> usize {
         usize::from_str_radix(self.take(amount), 2).unwrap()
-    }
-
-    fn skip(&mut self, amount: usize) -> () {
-        self.index += amount
-    }
-
-    fn is_finished(&self) -> bool {
-        // println!("is finished ? {:?} >= {:?}", self.index, self.data.len());
-        self.index >= self.data.len() - 6
     }
 }
 
@@ -79,14 +65,11 @@ fn parse_input(input: &String) -> Option<Packet> {
     };
 
     fn parse_packet(binary_input: &mut Input) -> Option<Packet> {
-        // println!("{:?}: {:?}", binary_input.index, binary_input.data);
-        let mut result = None;
-        // while !binary_input.is_finished() {
+        let result;
         let version = binary_input.take_usize(3);
         let id = binary_input.take_usize(3);
         match id {
             4 => {
-                // println!("Found literal");
                 let mut to_parse = "".to_string();
                 while binary_input.take(1) == "1" {
                     to_parse.push_str(binary_input.take(4));
@@ -99,8 +82,6 @@ fn parse_input(input: &String) -> Option<Packet> {
             }
             _ => match binary_input.take(1) {
                 "0" => {
-                    // println!("Found 15 bits, {:?}", binary_input.index);
-                    // next 15 bits are a number that represents the total length in bits of the sub-packets contained by this packet
                     let mut sub_packets = vec![];
                     let length_to_read = binary_input.take_usize(15);
                     let start_index = binary_input.index;
@@ -114,8 +95,6 @@ fn parse_input(input: &String) -> Option<Packet> {
                     })
                 }
                 _ => {
-                    // println!("Found 11 bits");
-                    // next 11 bits are a number that represents the number of sub-packets immediately contained by this packet
                     result = Some(Packet::Operator {
                         version,
                         id,
@@ -123,7 +102,6 @@ fn parse_input(input: &String) -> Option<Packet> {
                             vec![],
                             |mut acc, _| {
                                 acc.push(parse_packet(binary_input).unwrap());
-                                // println!("{:?}", binary_input.index);
                                 acc
                             },
                         ),
@@ -131,10 +109,8 @@ fn parse_input(input: &String) -> Option<Packet> {
                 }
             },
         }
-        // }
         result
     }
-
     parse_packet(&mut binary_input)
 }
 
@@ -162,8 +138,43 @@ pub fn part1(input: String) {
 }
 
 pub fn part2(input: String) {
-    // match parse_input(&input) {
-    //     Some(packet) => println!("{:?}", calculate_version_sums(&packet)),
-    //     None => {}
-    // }
+    fn calculate(packet: &Packet) -> usize {
+        match packet {
+            Packet::Literal { value, .. } => *value,
+            Packet::Operator {
+                id, sub_packets, ..
+            } => match id {
+                0 => sub_packets.iter().map(calculate).sum::<usize>(),
+                1 => sub_packets.iter().map(calculate).product::<usize>(),
+                2 => sub_packets.iter().map(calculate).min().unwrap(),
+                3 => sub_packets.iter().map(calculate).max().unwrap(),
+                5 => {
+                    if calculate(&sub_packets[0]) > calculate(&sub_packets[1]) {
+                        1
+                    } else {
+                        0
+                    }
+                }
+                6 => {
+                    if calculate(&sub_packets[0]) < calculate(&sub_packets[1]) {
+                        1
+                    } else {
+                        0
+                    }
+                }
+                7 => {
+                    if calculate(&sub_packets[0]) == calculate(&sub_packets[1]) {
+                        1
+                    } else {
+                        0
+                    }
+                }
+                _ => 0,
+            },
+        }
+    }
+    match parse_input(&input) {
+        Some(packet) => println!("{:?}", calculate(&packet)),
+        None => {}
+    }
 }
