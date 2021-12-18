@@ -4,29 +4,34 @@ use std::{
     convert::TryInto,
     usize, vec,
 };
+
+#[derive(Debug)]
 enum Packet {
     Literal {
-        version: u32,
-        value: u64,
+        version: usize,
+        value: usize,
     },
     Operator {
-        version: u32,
-        tag: u32,
+        version: usize,
+        id: usize,
         sub_packets: Vec<Packet>,
     },
 }
 
 #[derive(Clone)]
-struct BinaryInput {
+struct Input {
     data: String,
     index: usize,
 }
 
-impl BinaryInput {
+impl Input {
     fn take(&mut self, amount: usize) -> &str {
         let result = &self.data[self.index..self.index + amount];
         self.index += amount;
         result
+    }
+    fn take_usize(&mut self, amount: usize) -> usize {
+        usize::from_str_radix(self.take(amount), 2).unwrap()
     }
 
     fn skip(&mut self, amount: usize) -> () {
@@ -61,74 +66,8 @@ fn to_binary(c: char) -> &'static str {
     }
 }
 
-fn to_number(n: &str) -> usize {
-    match n {
-        "001" => 1,
-        "010" => 2,
-        "011" => 3,
-        "100" => 4,
-        "101" => 5,
-        "110" => 6,
-        "111" => 7,
-        _ => 0,
-    }
-}
-
-// fn parse_binary_input(binary_input: &mut BinaryInput) -> BinaryInput {
-    // // println!("parsing {:?}", binary_input.data);
-    // let mut result = 0;
-    // while !binary_input.is_finished() {
-    //     let version = usize::from_str_radix(binary_input.take(3), 2).unwrap();
-    //     let id = usize::from_str_radix(binary_input.take(3), 2).unwrap();
-    //     println!("version {:?}, id {:?}", version, id);
-    //     result = version;
-    //     match id {
-    //         4 => {
-    //             let mut to_parse = "".to_string();
-    //             println!(" binary input {:?}", binary_input.data);
-    //             while binary_input.take(1) == "1" {
-    //                 to_parse.push_str(binary_input.take(4));
-    //             }
-    //             to_parse.push_str(binary_input.take(4));
-    //             println!(
-    //                 "{:?} {:?}",
-    //                 to_parse,
-    //                 usize::from_str_radix(&to_parse, 2).unwrap()
-    //             );
-    //         }
-    //         _ => {
-    //             match binary_input.take(1) {
-    //                 "0" => {
-    //                     println!("0");
-    //                     // total length of subpackets in next 15 bits
-    //                     let length = usize::from_str_radix(&binary_input.take(15), 2).unwrap();
-    //                     let mut result_binary_input = parse_binary_input(&mut BinaryInput {
-    //                         data: binary_input.take(length).to_string(),
-    //                         index: 0,
-    //                     });
-    //                 }
-    //                 _ => {
-    //                     println!("1");
-    //                     // number of subpackets contained in next 11 bits
-    //                     let amount = usize::from_str_radix(&binary_input.take(11), 2).unwrap();
-    //                     for _ in 0..amount {
-    //                         let temp_result = parse_binary_input(binary_input);
-    //                         // println!("1: {:?}", temp_result);
-    //                         result += temp_result;
-    //                     }
-    //                 }
-    //             }
-    //         }
-    //     }
-    // }
-    // println!("result: {:?}", result);
-    // binary_input.clone()
-// }
-
-// 8A004A801A8002F478 represents an operator packet (version 4) which contains an operator packet (version 1) which contains an operator packet (version 5) which contains a literal value (version 6); this packet has a version sum of 16.
-
-fn parse_input(input: &String) -> BinaryInput {
-    let mut binary_input = BinaryInput {
+fn parse_input(input: &String) -> Option<Packet> {
+    let mut binary_input = Input {
         data: input
             .chars()
             .map(to_binary)
@@ -138,55 +77,93 @@ fn parse_input(input: &String) -> BinaryInput {
             }),
         index: 0,
     };
-    // println!("{:?}", binary_input.data);
-    // while !binary_input.is_finished() {
-    //     let version = usize::from_str_radix(binary_input.take(3), 2).unwrap();
-    //     let id = usize::from_str_radix(binary_input.take(3), 2).unwrap();
-    //     println!("{:?} {:?}", version, id);
-    //     match id {
-    //         4 => {
-    //             let mut to_parse = "".to_string();
-    //             while binary_input.take(1) == "1" {
-    //                 to_parse.push_str(binary_input.take(4));
-    //             }
-    //             to_parse.push_str(binary_input.take(4));
-    //             println!(
-    //                 "{:?} {:?}",
-    //                 to_parse,
-    //                 usize::from_str_radix(&to_parse, 2).unwrap()
-    //             );
-    //         }
-    //         _ => {
-    //             match binary_input.take(1) {
-    //                 "0" => {
-    //                     // total length of subpackets in next 15 bits
-    //                     let length = usize::from_str_radix(&binary_input.take(15), 2).unwrap();
-    //                     println!(
-    //                         "{:?}",
-    //                         usize::from_str_radix(binary_input.take(length), 2).unwrap()
-    //                     )
-    //                 }
-    //                 _ => {
-    //                     // number of subpackets contained in next 11 bits
-    //                 }
-    //             }
-    //         }
-    //     }
-    //     result.push(Packet {
-    //         version: version,
-    //         id: id,
-    //     })
-    // }
-    parse_binary_input(&mut binary_input)
-    // binary_input
-    //     .iter()
-    //     .enumerate()
-    //     .into_iter()
-    //     .for_each(|(i, c)| println!("{:?}", c));
+
+    fn parse_packet(binary_input: &mut Input) -> Option<Packet> {
+        // println!("{:?}: {:?}", binary_input.index, binary_input.data);
+        let mut result = None;
+        // while !binary_input.is_finished() {
+        let version = binary_input.take_usize(3);
+        let id = binary_input.take_usize(3);
+        match id {
+            4 => {
+                // println!("Found literal");
+                let mut to_parse = "".to_string();
+                while binary_input.take(1) == "1" {
+                    to_parse.push_str(binary_input.take(4));
+                }
+                to_parse.push_str(binary_input.take(4));
+                result = Some(Packet::Literal {
+                    version,
+                    value: usize::from_str_radix(&to_parse, 2).unwrap(),
+                })
+            }
+            _ => match binary_input.take(1) {
+                "0" => {
+                    // println!("Found 15 bits, {:?}", binary_input.index);
+                    // next 15 bits are a number that represents the total length in bits of the sub-packets contained by this packet
+                    let mut sub_packets = vec![];
+                    let length_to_read = binary_input.take_usize(15);
+                    let start_index = binary_input.index;
+                    while binary_input.index < start_index + length_to_read {
+                        sub_packets.push(parse_packet(binary_input).unwrap());
+                    }
+                    result = Some(Packet::Operator {
+                        version,
+                        id,
+                        sub_packets,
+                    })
+                }
+                _ => {
+                    // println!("Found 11 bits");
+                    // next 11 bits are a number that represents the number of sub-packets immediately contained by this packet
+                    result = Some(Packet::Operator {
+                        version,
+                        id,
+                        sub_packets: (0..binary_input.take_usize(11)).into_iter().fold(
+                            vec![],
+                            |mut acc, _| {
+                                acc.push(parse_packet(binary_input).unwrap());
+                                // println!("{:?}", binary_input.index);
+                                acc
+                            },
+                        ),
+                    })
+                }
+            },
+        }
+        // }
+        result
+    }
+
+    parse_packet(&mut binary_input)
 }
 
 pub fn part1(input: String) {
-    println!("{:?}", parse_input(&input).index);
+    fn calculate_version_sums(packet: &Packet) -> usize {
+        match packet {
+            Packet::Literal { version, .. } => *version,
+            Packet::Operator {
+                version,
+                sub_packets,
+                ..
+            } => {
+                *version
+                    + sub_packets
+                        .iter()
+                        .map(calculate_version_sums)
+                        .sum::<usize>()
+            }
+        }
+    }
+    match parse_input(&input) {
+        Some(packet) => println!("{:?}", calculate_version_sums(&packet)),
+        None => {}
+    }
 }
 
-pub fn part2(input: String) {}
+pub fn part2(input: String) {
+    // match parse_input(&input) {
+    //     Some(packet) => println!("{:?}", calculate_version_sums(&packet)),
+    //     None => {}
+    // }
+}
