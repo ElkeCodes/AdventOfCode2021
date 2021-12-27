@@ -1,10 +1,8 @@
-use std::{
-    str::FromStr,
-};
+use std::{cmp::max, str::FromStr};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 enum SnailFishNumber {
-    Value(i128),
+    Value(u128),
     Pair(Box<SnailFishNumber>, Box<SnailFishNumber>),
 }
 
@@ -13,7 +11,7 @@ impl FromStr for SnailFishNumber {
 
     fn from_str(input: &str) -> Result<Self, Self::Err> {
         if !input.starts_with('[') {
-            return Ok(SnailFishNumber::Value(input.parse::<i128>().unwrap()));
+            return Ok(SnailFishNumber::Value(input.parse::<u128>().unwrap()));
         }
 
         let mut cut_index = 0;
@@ -41,14 +39,14 @@ impl FromStr for SnailFishNumber {
 }
 
 impl SnailFishNumber {
-    fn magnitude(&self) -> i128 {
+    fn magnitude(&self) -> u128 {
         match self {
             SnailFishNumber::Value(v) => *v,
             SnailFishNumber::Pair(a, b) => 3 * a.magnitude() + 2 * b.magnitude(),
         }
     }
 
-    fn explode(&mut self, depth: usize) -> (Option<i128>, Option<i128>, bool) {
+    fn explode(&mut self, depth: usize) -> (Option<u128>, Option<u128>, bool) {
         match self {
             SnailFishNumber::Pair(a, b) => {
                 if depth >= 4 {
@@ -94,7 +92,7 @@ impl SnailFishNumber {
         }
     }
 
-    fn inject_left(&mut self, increment: i128) -> bool {
+    fn inject_left(&mut self, increment: u128) -> bool {
         match self {
             SnailFishNumber::Value(v) => {
                 *v += increment;
@@ -104,7 +102,7 @@ impl SnailFishNumber {
         }
     }
 
-    fn inject_right(&mut self, increment: i128) -> bool {
+    fn inject_right(&mut self, increment: u128) -> bool {
         match self {
             SnailFishNumber::Value(v) => {
                 *v += increment;
@@ -160,7 +158,34 @@ pub fn part1(input: String) {
             })
             .unwrap()
             .magnitude()
-    );
+    ); // 3793
 }
 
-pub fn part2(input: String) {}
+pub fn part2(input: String) {
+    let snail_fish_numbers: Vec<SnailFishNumber> = input
+        .lines()
+        .map(SnailFishNumber::from_str)
+        .map(|x| x.unwrap())
+        .collect();
+    let mut max_magnitude = 0;
+    for i in 0..snail_fish_numbers.len() {
+        for j in 0..snail_fish_numbers.len() {
+            if i != j {
+                let mut current_number = SnailFishNumber::Pair(
+                    Box::new(snail_fish_numbers[i].clone()),
+                    Box::new(snail_fish_numbers[j].clone()),
+                );
+                let mut should_continue = true;
+                while should_continue {
+                    should_continue = current_number.explode(0).2;
+                    if !should_continue {
+                        should_continue = current_number.split();
+                    }
+                }
+                let mangiutde = current_number.magnitude();
+                max_magnitude = max(max_magnitude, mangiutde);
+            }
+        }
+    }
+    println!("{:?}", max_magnitude); // 4695
+}
